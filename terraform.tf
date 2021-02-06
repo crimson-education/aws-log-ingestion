@@ -146,17 +146,17 @@ resource "null_resource" "build_lambda" {
   }
 
   provisioner "local-exec" {
-    command     = "docker build -t ${local.lambda_image_name} --network host ."
+    command     = "docker build -t ${var.lambda_image_name} --network host ."
     working_dir = path.module
   }
 
   provisioner "local-exec" {
-    command     = "docker run --rm --entrypoint cat ${local.lambda_image_name} /out.zip > ${abspath(local.archive_name)}"
+    command     = "docker run --rm --entrypoint cat ${var.lambda_image_name} /out.zip > ${abspath(local.archive_name)}"
     working_dir = path.module
   }
 
   provisioner "local-exec" {
-    command    = "docker image rm ${local.lambda_image_name}"
+    command    = "docker image rm ${var.lambda_image_name}"
     on_failure = continue
   }
 }
