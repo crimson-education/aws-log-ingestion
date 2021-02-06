@@ -52,7 +52,7 @@ variable "timeout" {
 
 variable "function_role" {
   type        = string
-  description = "IAM Role name that this function will assume. Should provide the AWSLambdaBasicExecutionRole policy. If not specified, an appropriate Role will be created, which will require CAPABILITY_IAM to be acknowledged."
+  description = "IAM Role name that this function will assume. Should provide the AWSLambdaBasicExecutionRole policy. If not specified, an appropriate Role will be created."
   default     = null
 }
 
