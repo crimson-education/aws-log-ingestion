@@ -63,6 +63,7 @@ locals {
   aws_account_id = data.aws_caller_identity.current.account_id
   aws_partition  = data.aws_partition.current.partition
   aws_region     = data.aws_region.current.name
+  archive_name   = "./newrelic-log-ingestion.zip"
 }
 
 data "aws_iam_policy_document" "lambda_assume_policy" {
@@ -98,10 +99,25 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 
+resource "null_resource" "build_lambda" {
+  provisioner "local-exec" {
+    command = "docker build -t newrelic-log-ingestion --network host . && docker run --rm --entrypoint cat newrelic-log-ingestion /out.zip > ${local.archive_name}"
+  }
+}
+
+data "local_file" "lambda_zip" {
+  depends_on = [
+    null_resource.build_lambda,
+  ]
+  filename = local.archive_name
+}
+
 resource "aws_lambda_function" "ingestion_function" {
   depends_on = [
     aws_iam_role.lambda_role,
     aws_cloudwatch_log_group.lambda_logs,
+    null_resource.build_lambda,
+    data.local_file.lambda_zip
   ]
 
   function_name = var.name
@@ -116,8 +132,8 @@ resource "aws_lambda_function" "ingestion_function" {
   memory_size = var.memory_size
   timeout     = var.timeout
 
-  filename         = ""
-  source_code_hash = ""
+  filename         = local.archive_name
+  source_code_hash = sha256(data.local_file.lambda_zip.content_base64)
 
   environment {
     variables = {
