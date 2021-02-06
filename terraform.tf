@@ -26,6 +26,18 @@ variable "nr_infra_logging" {
   default     = true
 }
 
+variable "lambda_archive" {
+  type        = string
+  description = "The path to the lambda archive, the lambda will be build here if the build_lambda variable is true. If so you will need to copy the output to the terraform apply step, if using planning."
+  default     = "temp/newrelic-log-ingestion.zip"
+}
+
+variable "build_lambda" {
+  type        = bool
+  description = "Build the Lambda with Docker?"
+  default     = true
+}
+
 variable "memory_size" {
   type        = number
   description = "Memory size for the New Relic Log Ingestion Lambda function"
@@ -65,11 +77,13 @@ variable "tags" {
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}
+
 locals {
   aws_account_id = data.aws_caller_identity.current.account_id
   aws_partition  = data.aws_partition.current.partition
   aws_region     = data.aws_region.current.name
-  archive_name   = "./newrelic-log-ingestion.zip"
+  archive_name   = var.lambda_archive
+  archive_folder = dirname(local.archive_name)
   tags = merge(
     var.tags,
     { "lambda:createdBy" = "Terraform" }
@@ -114,8 +128,24 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 }
 
 resource "null_resource" "build_lambda" {
+  count = var.build_lambda ? 1 : 0
+
   provisioner "local-exec" {
-    command = "docker build -t newrelic-log-ingestion --network host . && docker run --rm --entrypoint cat newrelic-log-ingestion /out.zip > ${local.archive_name}"
+    // OS Agnostic folder creation.
+    command = (local.archive_folder != "."
+      ? "mkdir ${local.archive_folder} || mkdir -p ${local.archive_folder}"
+      : "echo Folder Exists"
+    )
+  }
+
+  provisioner "local-exec" {
+    command     = "docker build -t newrelic-log-ingestion --network host ."
+    working_dir = path.module
+  }
+
+  provisioner "local-exec" {
+    command     = "docker run --rm --entrypoint cat newrelic-log-ingestion /out.zip > ${abspath(local.archive_name)}"
+    working_dir = path.module
   }
 }
 
