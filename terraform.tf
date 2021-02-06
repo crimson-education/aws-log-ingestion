@@ -136,11 +136,6 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 resource "null_resource" "build_lambda" {
   count = var.build_lambda ? 1 : 0
 
-  # Build each time, otherwise local_file will fail.
-  triggers = {
-    build = uuid()
-  }
-
   provisioner "local-exec" {
     // OS Agnostic folder creation.
     command = (local.archive_folder != "."
@@ -166,13 +161,6 @@ resource "null_resource" "build_lambda" {
   }
 }
 
-data "local_file" "lambda_zip" {
-  depends_on = [
-    null_resource.build_lambda,
-  ]
-  filename = local.archive_name
-}
-
 resource "aws_lambda_function" "ingestion_function" {
   depends_on = [
     aws_iam_role.lambda_role,
@@ -183,18 +171,15 @@ resource "aws_lambda_function" "ingestion_function" {
 
   function_name = var.service_name
   description   = "Sends log data from CloudWatch Logs to New Relic Infrastructure (Cloud integrations) and New Relic Logging"
-  publish       = true
   role = (var.function_role != null
     ? var.function_role
     : aws_iam_role.lambda_role.0.arn
   )
   runtime     = "python3.7"
+  filename    = local.archive_name
   handler     = "function.lambda_handler"
   memory_size = var.memory_size
   timeout     = var.timeout
-
-  filename         = local.archive_name
-  source_code_hash = sha256(data.local_file.lambda_zip.content_base64)
 
   environment {
     variables = {
