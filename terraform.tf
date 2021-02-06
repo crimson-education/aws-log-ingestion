@@ -56,6 +56,12 @@ variable "lambda_log_retention_in_days" {
   default     = 7
 }
 
+variable "tags" {
+  type        = map(string)
+  description = "Tags to add to the resources created"
+  default     = {}
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}
@@ -64,6 +70,10 @@ locals {
   aws_partition  = data.aws_partition.current.partition
   aws_region     = data.aws_region.current.name
   archive_name   = "./newrelic-log-ingestion.zip"
+  tags = merge(
+    var.tags,
+    { "lambda:createdBy" = "Terraform" }
+  )
 }
 
 data "aws_iam_policy_document" "lambda_assume_policy" {
@@ -82,9 +92,11 @@ data "aws_iam_policy_document" "lambda_assume_policy" {
 resource "aws_iam_role" "lambda_role" {
   count = var.function_role == null ? 1 : 0
 
-  name                 = var.name
+  name                 = var.service_name
   assume_role_policy   = data.aws_iam_policy_document.lambda_assume_policy.json
   permissions_boundary = var.permissions_boundary
+
+  tags = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_log_policy" {
@@ -95,8 +107,10 @@ resource "aws_iam_role_policy_attachment" "lambda_log_policy" {
 }
 
 resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${var.name}"
+  name              = "/aws/lambda/${var.service_name}"
   retention_in_days = var.lambda_log_retention_in_days
+
+  tags = local.tags
 }
 
 resource "null_resource" "build_lambda" {
@@ -120,7 +134,7 @@ resource "aws_lambda_function" "ingestion_function" {
     data.local_file.lambda_zip
   ]
 
-  function_name = var.name
+  function_name = var.service_name
   description   = "Sends log data from CloudWatch Logs to New Relic Infrastructure (Cloud integrations) and New Relic Logging"
   publish       = true
   role = (var.function_role != null
@@ -142,6 +156,8 @@ resource "aws_lambda_function" "ingestion_function" {
       INFRA_ENABLED   = var.nr_infra_logging ? "True" : "False"
     }
   }
+
+  tags = local.tags
 }
 
 resource "aws_lambda_permission" "log_invoke_permission" {
