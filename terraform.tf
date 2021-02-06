@@ -38,6 +38,12 @@ variable "build_lambda" {
   default     = true
 }
 
+variable "lambda_image_name" {
+  type        = string
+  description = "Created temporary docker image name. Might need to specify if using the module more than once."
+  default     = "newrelic-log-ingestion"
+}
+
 variable "memory_size" {
   type        = number
   description = "Memory size for the New Relic Log Ingestion Lambda function"
@@ -136,16 +142,22 @@ resource "null_resource" "build_lambda" {
       ? "mkdir ${local.archive_folder} || mkdir -p ${local.archive_folder}"
       : "echo Folder Exists"
     )
+    on_failure = continue
   }
 
   provisioner "local-exec" {
-    command     = "docker build -t newrelic-log-ingestion --network host ."
+    command     = "docker build -t ${local.lambda_image_name} --network host ."
     working_dir = path.module
   }
 
   provisioner "local-exec" {
-    command     = "docker run --rm --entrypoint cat newrelic-log-ingestion /out.zip > ${abspath(local.archive_name)}"
+    command     = "docker run --rm --entrypoint cat ${local.lambda_image_name} /out.zip > ${abspath(local.archive_name)}"
     working_dir = path.module
+  }
+
+  provisioner "local-exec" {
+    command    = "docker image rm ${local.lambda_image_name}"
+    on_failure = continue
   }
 }
 
