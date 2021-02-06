@@ -166,7 +166,6 @@ resource "aws_lambda_function" "ingestion_function" {
     aws_iam_role.lambda_role,
     aws_cloudwatch_log_group.lambda_logs,
     null_resource.build_lambda,
-    data.local_file.lambda_zip
   ]
 
   function_name = var.service_name
