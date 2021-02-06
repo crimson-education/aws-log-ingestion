@@ -136,6 +136,11 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 resource "null_resource" "build_lambda" {
   count = var.build_lambda ? 1 : 0
 
+  # Build each time, otherwise local_file will fail.
+  triggers = {
+    build = uuid()
+  }
+
   provisioner "local-exec" {
     // OS Agnostic folder creation.
     command = (local.archive_folder != "."
