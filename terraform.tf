@@ -28,7 +28,7 @@ variable "nr_infra_logging" {
 
 variable "lambda_archive" {
   type        = string
-  description = "The path to the lambda archive, the lambda will be build here if the build_lambda variable is true. If so you will need to copy the output to the terraform apply step, if using planning."
+  description = "The path to the lambda archive, the lambda will be build here if the build_lambda variable is true."
   default     = "temp/newrelic-log-ingestion.zip"
 }
 
