@@ -135,6 +135,8 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
 resource "null_resource" "build_lambda" {
   count = var.build_lambda ? 1 : 0
+  // Depends on log group, just in case this is created in a brand new AWS Subaccount, and it doesn't have subscriptions yet.
+  depends_on = [aws_cloudwatch_log_group.lambda_logs]
 
   provisioner "local-exec" {
     // OS Agnostic folder creation.
